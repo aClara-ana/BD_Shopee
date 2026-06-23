@@ -46,7 +46,7 @@ CREATE TABLE chats(
   id SERIAL PRIMARY KEY,
   usuario_id INT  REFERENCES usuarios(id) ON DELETE SET NULL,
   loja_id INT REFERENCES lojas(id) ON DELETE SET NULL,
-  produto_id INT REFERENCES produtos(id) ON DELETE SET NULL, 
+  produto_id INT REFERENCES produtos(id) ON DELETE SET NULL
   );
 
 CREATE TABLE conversas(
