@@ -41,4 +41,18 @@ CREATE TABLE produtos(
    quantidade INT NOT NULL CHECK (quantidade > 0),
    preco_unitario DECIMAL(10,2) NOT NULL CHECK (preco_unitario > 0)
   );
+
+CREATE TABLE chats(
+  id SERIAL PRIMARY KEY,
+  usuario_id INT  REFERENCES usuarios(id) ON DELETE SET NULL,
+  loja_id INT REFERENCES lojas(id) ON DELETE SET NULL,
+  produto_id INT REFERENCES produtos(id) ON DELETE SET NULL, 
+  );
+
+CREATE TABLE conversas(
+  id SERIAL PRIMARY KEY, 
+  chat_id INT REFERENCES chats(id) ON DELETE CASCADE,
+  autor_cpf VARCHAR(14) UNIQUE REFERENCES usuarios(cpf) ON DELETE SET NULL
+  );
+  
   
