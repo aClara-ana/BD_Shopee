@@ -9,11 +9,11 @@ CREATE TABLE lojas( -- Colocar a data de criação da loja
   id SERIAL PRIMARY KEY,
   usuario_cpf VARCHAR(14) NOT NULL UNIQUE REFERENCES usuarios(cpf) ON DELETE CASCADE,
   nome_loja VARCHAR(150) NOT NULL,
-  cnpj VARCHAR(14) UNIQUE,
+  cnpj VARCHAR(14) UNIQUE
 );
 
 CREATE TABLE dados_bancarios(
-  id SERIAL PRIMARY KEY
+  id SERIAL PRIMARY KEY,
   usuario_cpf VARCHAR(14) NOT NULL REFERENCES usuarios(cpf) ON DELETE CASCADE,
   nome_titular VARCHAR(150) NOT NULL,
   codigo_banco VARCHAR(5) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE produtos(
 
 CREATE TABLE chats(
   id SERIAL PRIMARY KEY,
-  usuario_id INTEGER  REFERENCES usuarios(id) ON DELETE SET NULL,
+  usuario_cpf INTEGER  REFERENCES usuarios(cpf) ON DELETE SET NULL,
   loja_id INTEGER REFERENCES lojas(id) ON DELETE SET NULL,
   produto_id INTEGER REFERENCES produtos(id) ON DELETE SET NULL
   );
@@ -64,7 +64,7 @@ CREATE TABLE chats(
 CREATE TABLE conversas(
   id SERIAL PRIMARY KEY, 
   chat_id INTEGER REFERENCES chats(id) ON DELETE CASCADE,
-  autor_cpf VARCHAR(14) REFERENCES usuarios(cpf) ON DELETE SET NULL
+  autor_cpf VARCHAR(14) REFERENCES usuarios(cpf) ON DELETE SET NULL,
   mensagem TEXT NOT NULL
   );
 
