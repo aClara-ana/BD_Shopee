@@ -82,13 +82,13 @@ CREATE TABLE itens_carrinho(
 
 CREATE TABLE endereços(
   id SERIAL PRIMARY KEY,
-  usuario_cpf VARCHAR(14) NOT NULL REFERENCES usuarios(cpf) ON DELETE,
+  usuario_cpf VARCHAR(14) NOT NULL REFERENCES usuarios(cpf) ON DELETE CASCADE,
   rua VARCHAR(200) NOT NULL,
   numero VARCHAR(20) NOT NULL, 
   complemento VARCHAR (300) NOT NULL, 
   bairro  VARCHAR (100) NOT NULL, 
   cidade VARCHAR(100) NOT NULL,
-  estado VARCHAR(2) NOT NULL CHECK (estados IN ('AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO', 'AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE', 'GO', 'MT', 'MS', 'DF', 'ES', 'MG', 'RJ', 'SP', 'PR' 'RS', 'SC'),
+  estado VARCHAR(2) NOT NULL CHECK (estado IN ('AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO', 'AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE', 'GO', 'MT', 'MS', 'DF', 'ES', 'MG', 'RJ', 'SP', 'PR', 'RS', 'SC')),
   cep VARCHAR(9) NOT NULL
 ); 
 
