@@ -10,7 +10,7 @@ CREATE TABLE endereco (
     bairro VARCHAR(100) NOT NULL,
     logradouro VARCHAR(150) NOT NULL,
     numero VARCHAR(10) NOT NULL,        
-    complemento VARCHAR(100),           --Pode ser opcional
+    complemento VARCHAR(100),           --Opcional
     tipo_endereco VARCHAR(20) NOT NULL DEFAULT 'CASA', --Casa é definida como padrão
     
     CONSTRAINT chk_tipo_endereco        --Verifica o tipo de endereço
