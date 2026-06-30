@@ -24,7 +24,7 @@ CREATE TABLE live_comentario (
   id_comentario UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_live UUID NOT NULL REFERENCES live_stream(id_live) ON DELETE CASCADE,
   
-  -- Quem comentou (FK do usuário que está assistindo, arquivo 01)
+  -- Quem comentous (FK do usuário que está assistindo, arquivo 01)
   id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
   
   mensagem TEXT NOT NULL,
