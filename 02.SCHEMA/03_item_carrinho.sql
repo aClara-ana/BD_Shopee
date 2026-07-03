@@ -1,6 +1,6 @@
 CREATE TABLE carrinho (
     id_carrinho UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    id_cliente UUID NOT NULL REFERENCES cliente(id_cliente),
+    id_usuario UUID NOT NULL REFERENCES usuario(id_usuario),
     data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_carrinho_unico_cliente
         UNIQUE (id_cliente)  -- Garante que cada cliente tenha apenas um carrinho ativo
