@@ -10,7 +10,7 @@ ADD COLUMN id_vendedor UUID REFERENCES vendedor(id_vendedor) ON DELETE CASCADE;
 -- OU a um usuário OU a um vendedor, nunca ficando "solto" no banco.
 ALTER TABLE endereco 
 ADD CONSTRAINT chk_proprietario_endereco 
-CHECK ((id_usuario IS NOT NULL AND id_vendedor IS NULL) OR (id_usuario IS NULL AND id_vendedor NOT NULL));
+CHECK ((id_usuario IS NOT NULL AND id_vendedor IS NULL) OR (id_usuario IS NULL AND id_vendedor IS NOT NULL));
 
 -- Valor pago pelo item naquele pedido  
 ALTER TABLE item_pedido 
