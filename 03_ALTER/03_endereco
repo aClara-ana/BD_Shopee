@@ -1,0 +1,13 @@
+-- ============================================
+-- ALTER TABLE referentes ao arquivo 04_endereco.sql
+-- ============================================
+
+ALTER TABLE endereco
+    ADD COLUMN nome_destinatario VARCHAR(150),
+    ADD COLUMN telefone_destinatario VARCHAR(11),
+    ADD COLUMN ponto_referencia VARCHAR(150);
+
+-- Mesma validação de formato usada em usuario.numero_celular
+ALTER TABLE endereco
+    ADD CONSTRAINT chk_telefone_destinatario
+        CHECK (telefone_destinatario IS NULL OR telefone_destinatario ~ '^[0-9]{10,11}$');
