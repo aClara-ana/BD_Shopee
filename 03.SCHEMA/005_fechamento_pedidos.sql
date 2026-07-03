@@ -6,7 +6,7 @@ CREATE TABLE pedido (
   id_endereco_entrega INTEGER NOT NULL REFERENCES endereco(id_endereco),
   valor_produtos DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_produtos CHECK (valor_produtos >= 0),
   valor_frete DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_frete CHECK (valor_frete >= 0),
-  valor_cupom DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_cupom CHECK (valor_cupom >= 0),
+  valor_cupom DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_cupom_pedido CHECK (valor_cupom >= 0),
   valor_total DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_total CHECK (valor_total >= 0),
   metodo_pagamento VARCHAR(20) NOT NULL,
   CONSTRAINT chk_metodo_pagamento CHECK (metodo_pagamento IN ('CARTAO_CREDITO', 'CARTAO_DEBITO', 'PIX', 'BOLETO')),
