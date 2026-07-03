@@ -1,6 +1,6 @@
 CREATE TABLE categoria( 
   id_categoria SERIAL PRIMARY KEY, 
-  nome VARCHAR(100) NOT NULL, 
+  nome VARCHAR(100) UNIQUE NOT NULL, 
   status_categoria VARCHAR(20) NOT NULL DEFAULT 'ATIVO',
   CONSTRAINT chk_status_categoria CHECK (status_categoria IN ('ATIVO', 'INATIVO')),
   data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
