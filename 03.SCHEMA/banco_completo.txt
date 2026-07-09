@@ -1,0 +1,380 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE nivel (
+  id_nivel SERIAL PRIMARY KEY, 
+  nome VARCHAR (20) UNIQUE NOT NULL,
+  CONSTRAINT chk_nome_nivel CHECK(nome IN('BRONZE', 'PRATA', 'OURO', 'DIAMANTE')),
+  pontos_minimos INTEGER NOT NULL, 
+  desconto INTEGER NOT NULL
+);
+
+INSERT INTO nivel (nome, pontos_minimos, desconto) VALUES
+('BRONZE', 0, 0),
+('PRATA', 100, 2),
+('OURO', 500, 5),
+('DIAMANTE', 1500, 10);
+
+CREATE TABLE usuario(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome VARCHAR(300) NOT NULL,
+  username VARCHAR (30) NOT NULL,
+  CONSTRAINT chk_username_shopee CHECK (username ~ '^[a-zA-Z0-9._]{5,30}$'),
+  email VARCHAR(30) UNIQUE NOT NULL,
+  CONSTRAINT chk_email_formato_valido CHECK (email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
+  numero_celular VARCHAR(11) UNIQUE NOT NULL, 
+  CONSTRAINT chk_numero_valido CHECK (numero_celular ~ '^[0-9]{10,11}$'),
+  senha_hash VARCHAR(60) NOT NULL,
+  cpf VARCHAR(11) UNIQUE NOT NULL, 
+  data_nascimento DATE NOT NULL, 
+  genero VARCHAR(20) DEFAULT 'NAO_INFORMADO',
+  CONSTRAINT chk_genero_usuario CHECK (genero IN ('MASCULINO', 'FEMININO', 'OUTRO', 'NAO_INFORMADO')),
+  id_nivel INTEGER NOT NULL DEFAULT 1 REFERENCES nivel(id_nivel),
+  status_conta VARCHAR (20) NOT NULL DEFAULT 'ATIVO',
+  CONSTRAINT chk_status_conta CHECK (status_conta IN('ATIVO', 'SUSPENSO', 'DELETADO', 'BANIDO')),
+  data_cadastro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  ultimo_login TIMESTAMP WITH TIME ZONE,
+  eh_vendedor BOOLEAN NOT NULL DEFAULT FALSE
+);
+  
+CREATE TABLE vendedor(
+  id_vendedor UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID UNIQUE NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  nome_loja VARCHAR(100) UNIQUE NOT NULL, 
+  documento_fiscal VARCHAR(14) UNIQUE NOT NULL, 
+  CONSTRAINT chk_documento_valido CHECK (documento_fiscal ~ '^[0-9]{11}$' OR documento_fiscal ~ '^[0-9]{14}$'),
+  avaliacao_loja DECIMAL(10,2) NOT NULL DEFAULT 5.0,
+  status_loja VARCHAR(20) NOT NULL DEFAULT 'ATIVO',
+  CONSTRAINT chk_status_loja CHECK (status_loja IN ('ATIVO', 'SUSPENSE', 'EM ANÁLISE')),
+  data_abertura TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE categoria( 
+  id_categoria SERIAL PRIMARY KEY, 
+  nome VARCHAR(100) UNIQUE NOT NULL, 
+  status_categoria VARCHAR(20) NOT NULL DEFAULT 'ATIVO',
+  CONSTRAINT chk_status_categoria CHECK (status_categoria IN ('ATIVO', 'INATIVO')),
+  data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE produto (
+    id_produto UUID PRIMARY KEY DEFAULT gen_random_uuid(),      
+    id_vendedor UUID NOT NULL REFERENCES vendedor(id_vendedor) ON DELETE CASCADE,  
+    id_categoria INTEGER NOT NULL REFERENCES categoria(id_categoria), 
+    nome VARCHAR(150) NOT NULL,
+    descricao TEXT,
+    preco DECIMAL(10,2) NOT NULL CONSTRAINT chk_preco_produto CHECK (preco > 0),                  
+    estoque INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_estoque_produto CHECK (estoque >= 0),     
+    peso DECIMAL(10,3) CONSTRAINT chk_peso_produto CHECK (peso IS NULL OR peso > 0),                   
+    status_produto VARCHAR(20) NOT NULL DEFAULT 'ATIVO',    
+    CONSTRAINT chk_status_produto CHECK (status_produto IN ('ATIVO', 'INATIVO', 'ESGOTADO')),
+    data_cadastro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP 
+);
+CREATE TABLE endereco (
+    id_endereco SERIAL PRIMARY KEY,
+    id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE, 
+    cep VARCHAR(8) NOT NULL, 
+    CONSTRAINT chk_cep CHECK (cep ~ '^[0-9]{8}$'),
+    estado VARCHAR(2) NOT NULL,         
+    cidade VARCHAR(100) NOT NULL,
+    bairro VARCHAR(100) NOT NULL,
+    logradouro VARCHAR(150) NOT NULL,
+    numero VARCHAR(10) NOT NULL,        
+    complemento VARCHAR(100),           
+    tipo_endereco VARCHAR(20) NOT NULL DEFAULT 'CASA', 
+    CONSTRAINT chk_tipo_endereco CHECK (tipo_endereco IN ('CASA', 'APARTAMENTO', 'TRABALHO', 'OUTRO')),
+    principal BOOLEAN NOT NULL DEFAULT FALSE, 
+    data_cadastro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE cupom (
+  id_cupom UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo VARCHAR(20) NOT NULL UNIQUE,   
+  tipo_cupom TEXT CHECK (tipo_cupom IN ('FRETE_GRATIS', 'DESCONTO_PERCENTUAL', 'DESCONTO_FIXO')) NOT NULL,
+  valor DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_cupom CHECK (valor >= 0),
+  valor_minimo DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_minimo CHECK (valor_minimo >= 0),
+  data_inicio TIMESTAMP WITH TIME ZONE NOT NULL,
+  data_fim TIMESTAMP WITH TIME ZONE NOT NULL,
+  limite_usos INTEGER NOT NULL CONSTRAINT chk_limite_uso CHECK (limite_usos >= 0), 
+  usos_atuais INTEGER DEFAULT 0, 
+  ativo BOOLEAN DEFAULT TRUE,
+
+  CONSTRAINT chk_data_fim_apos_inicio CHECK (data_fim > data_inicio),  
+  CONSTRAINT chk_porcentagem_limite CHECK (tipo_cupom <> 'DESCONTO_PERCENTUAL' OR valor <= 100.00)
+);
+CREATE TABLE pedido (
+  id_pedido UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID NOT NULL REFERENCES usuario(id),
+  id_cupom UUID REFERENCES cupom(id_cupom) ON DELETE SET NULL, 
+  data_pedido TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  id_endereco_entrega INTEGER NOT NULL REFERENCES endereco(id_endereco),
+  valor_produtos DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_produtos CHECK (valor_produtos >= 0),
+  valor_frete DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_frete CHECK (valor_frete >= 0),
+  valor_cupom DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_cupom_pedido CHECK (valor_cupom >= 0),
+  valor_total DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_total CHECK (valor_total >= 0),
+  metodo_pagamento VARCHAR(20) NOT NULL,
+  CONSTRAINT chk_metodo_pagamento CHECK (metodo_pagamento IN ('CARTAO_CREDITO', 'CARTAO_DEBITO', 'PIX', 'BOLETO')),
+  status_pedido VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+  CONSTRAINT chk_status_pedido CHECK (status_pedido IN ('PENDENTE', 'EM_PROCESSAMENTO', 'ENVIADO', 'ENTREGUE', 'CANCELADO')),
+  status_pagamento VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+  CONSTRAINT chk_status_pagamento CHECK (status_pagamento IN ('PENDENTE', 'APROVADO', 'NEGADO', 'ESTORNADO')),
+  data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  data_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT chk_calculo_total CHECK (valor_total = (valor_produtos + valor_frete) - valor_cupom)
+);
+CREATE TABLE item_pedido (
+    id_item_pedido UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_pedido UUID NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
+    id_produto UUID NOT NULL REFERENCES produto(id_produto),
+    id_vendedor UUID NOT NULL REFERENCES vendedor(id_vendedor), 
+    quantidade INTEGER NOT NULL CONSTRAINT chk_quantidade_item_pedido CHECK (quantidade > 0),
+    preco_unitario DECIMAL(10,2) NOT NULL CONSTRAINT chk_preco_unitario_item_pedido CHECK (preco_unitario >= 0),
+    subtotal DECIMAL(10,2) NOT NULL CONSTRAINT chk_subtotal_item_pedido CHECK (subtotal >= 0),
+    status_item VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+    CONSTRAINT chk_status_item_pedido CHECK (status_item IN ('PENDENTE', 'EM_PROCESSAMENTO', 'ENVIADO', 'ENTREGUE', 'CANCELADO')),
+    data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_pedido_produto UNIQUE (id_pedido, id_produto)
+);
+CREATE TABLE pagamento (
+    id_pagamento UUID PRIMARY KEY DEFAULT gen_random_uuid(),    
+    id_pedido UUID NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,       
+    metodo_pagamento VARCHAR(20) NOT NULL,                        
+    CONSTRAINT chk_metodo_pagamento_pag CHECK (metodo_pagamento IN ('PIX', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'BOLETO', 'CARTEIRA')),
+    status_pagamento VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',   
+    CONSTRAINT chk_status_pagamento_pag CHECK (status_pagamento IN ('PENDENTE', 'APROVADO', 'RECUSADO', 'ESTORNADO', 'CANCELADO')),
+    valor DECIMAL(10,2) NOT NULL CONSTRAINT chk_valor_pagamento CHECK (valor > 0),                                      
+    codigo_transacao VARCHAR(100) UNIQUE,
+    data_pagamento TIMESTAMP WITH TIME ZONE,                    
+    data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE carrinho (
+  id_carrinho UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID UNIQUE NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE item_carrinho (
+  id_item_carrinho SERIAL PRIMARY KEY,
+  id_carrinho UUID NOT NULL REFERENCES carrinho(id_carrinho) ON DELETE CASCADE,
+  id_produto UUID NOT NULL REFERENCES produto(id_produto) ON DELETE CASCADE,
+  quantidade INTEGER NOT NULL DEFAULT 1,
+  CONSTRAINT chk_quantidade_carrinho CHECK (quantidade > 0)
+);
+CREATE TABLE rastreamento (
+    id_rastreamento UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_pedido UUID UNIQUE NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
+    codigo_rastreio VARCHAR(50) UNIQUE NOT NULL,
+    transportadora VARCHAR(50) NOT NULL,
+    data_envio TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE historico_rastreamento (
+    id_historico SERIAL PRIMARY KEY,
+    id_rastreamento UUID NOT NULL REFERENCES rastreamento(id_rastreamento) ON DELETE CASCADE,
+    status_envio VARCHAR(30) NOT NULL,
+    CONSTRAINT chk_status_envio CHECK (status_envio IN ('POSTADO', 'EM_TRANSITO', 'SAIU_PARA_ENTREGA', 'ENTREGUE', 'FALHA_NA_ENTREGA')),
+    localizacao_atual VARCHAR(150) NOT NULL, 
+    detalhes TEXT, 
+    data_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE notificacao (
+    id_notificacao UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    id_pedido UUID NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    mensagem TEXT NOT NULL,
+    lido BOOLEAN DEFAULT FALSE,
+    data_enviado TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE variacao_produto (
+  id_variacao UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_produto UUID NOT NULL REFERENCES produto(id_produto) ON DELETE CASCADE,
+  nome_variacao VARCHAR(50) NOT NULL, 
+  estoque INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_estoque_var CHECK (estoque >= 0),
+  preco_variacao DECIMAL(10,2) NOT NULL CONSTRAINT chk_preco_var CHECK (preco_variacao >= 0)
+);
+CREATE TABLE conversa (
+  id_conversa UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  id_vendedor UUID NOT NULL REFERENCES vendedor(id_vendedor) ON DELETE CASCADE,
+  data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_usuario_vendedor_chat UNIQUE (id_usuario, id_vendedor)
+);
+
+CREATE TABLE mensagem_chat (
+  id_mensagem UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_conversa UUID NOT NULL REFERENCES conversa(id_conversa) ON DELETE CASCADE,
+  remetente_tipo VARCHAR(10) NOT NULL CONSTRAINT chk_remetente CHECK (remetente_tipo IN ('COMPRADOR', 'VENDEDOR')),
+  conteudo_mensagem TEXT NOT NULL,
+  lido BOOLEAN NOT NULL DEFAULT FALSE,
+  data_envio TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE avaliacao (
+    id_avaliacao UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_usuario UUID NOT NULL REFERENCES usuario(id),
+    id_produto UUID NOT NULL REFERENCES produto(id_produto),
+
+    nota INTEGER NOT NULL,
+    CONSTRAINT chk_nota_avaliacao
+        CHECK (nota BETWEEN 1 AND 5),
+
+    comentario TEXT,
+    data_avaliacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_usuario_produto  --impede que o mesmo usuário cadastre mais avaliações para o mesmo produto
+        UNIQUE (id_usuario, id_produto)
+);
+CREATE TABLE favorito (
+    id_favorito SERIAL PRIMARY KEY,
+    id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    id_produto UUID NOT NULL REFERENCES produto(id_produto) ON DELETE CASCADE,
+    data_adicionado TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_usuario_produto_favorito UNIQUE (id_usuario, id_produto)
+);
+CREATE TABLE seguir_vendedor (
+  id_seguidor UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_usuario UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  id_vendedor UUID NOT NULL REFERENCES vendedor(id_vendedor) ON DELETE CASCADE,
+  data_seguido TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  -- Impede duplicidade na linha
+  CONSTRAINT uq_usuario_vendedor UNIQUE (id_usuario, id_vendedor)
+);
+ALTER TABLE item_pedido 
+ADD COLUMN id_variacao UUID REFERENCES variacao_produto(id_variacao);
+
+-- Adicionar o endereço das empresas na tablea endereço 
+ALTER TABLE endereco ALTER COLUMN id_usuario DROP NOT NULL; -- Remove a obrigação de não ser nulo
+-- Adiciona a coluna ligando o endereço à tabela de vendedores
+ALTER TABLE endereco 
+ADD COLUMN id_vendedor UUID REFERENCES vendedor(id_vendedor) ON DELETE CASCADE;
+--  Adiciona uma restrição (CHECK) para garantir que um endereço pertença 
+-- OU a um usuário OU a um vendedor, nunca ficando "solto" no banco.
+ALTER TABLE endereco 
+ADD CONSTRAINT chk_proprietario_endereco 
+CHECK ((id_usuario IS NOT NULL AND id_vendedor IS NULL) OR (id_usuario IS NULL AND id_vendedor IS NOT NULL));
+
+-- Valor pago pelo item naquele pedido  
+ALTER TABLE item_pedido 
+ADD COLUMN preco_original_historico DECIMAL(10,2);
+-- Identificar se o produto é indicado
+ALTER TABLE produto 
+ADD COLUMN eh_indicado BOOLEAN NOT NULL DEFAULT FALSE;
+-- 1. Inserindo Categorias Diversas
+INSERT INTO categoria (nome, status_categoria) VALUES 
+('Arte e Papelaria', 'ATIVO'), 
+('Moda K-Pop e Vestuário', 'ATIVO'),
+('Decoração Cinéfila', 'ATIVO'),
+('Utensílios de Confeitaria', 'ATIVO'),
+('Livros e Cursos Tech', 'ATIVO');
+
+-- 2. Inserindo Usuários (Compradores e Vendedores)
+INSERT INTO usuario (id, nome, username, email, numero_celular, senha_hash, cpf, data_nascimento, genero, eh_vendedor) VALUES
+('10000000-0000-0000-0000-000000000001', 'Marcos Almeida', 'marcos_dev', 'marcos.dev@email.com', '91988887777', 'hash_123', '11122233344', '1998-03-22', 'MASCULINO', FALSE),
+('10000000-0000-0000-0000-000000000002', 'Beatriz Arte', 'bia_aquarela', 'bia.loja@email.com', '91988886666', 'hash_123', '55566677788', '1995-11-10', 'FEMININO', TRUE),
+('10000000-0000-0000-0000-000000000003', 'Carlos Geek', 'carlos_geek', 'carlos.vendas@email.com', '91988885555', 'hash_123', '99988877766', '1990-07-05', 'MASCULINO', TRUE),
+('10000000-0000-0000-0000-000000000004', 'Camila Leitora', 'mila_reads', 'camila@email.com', '91988884444', 'hash_123', '33344455566', '2001-09-12', 'FEMININO', FALSE);
+
+-- 3. Inserindo Lojas (Vendedores)
+INSERT INTO vendedor (id_vendedor, id_usuario, nome_loja, documento_fiscal, avaliacao_loja) VALUES
+('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Armazém da Aquarela', '12345678000199', 4.8),
+('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003', 'Nostalgia & K-Pop', '98765432000199', 4.2);
+
+-- 4. Inserindo Endereços 
+-- (O ID gerado é SERIAL: 1, 2, 3 e 4)
+INSERT INTO endereco (id_usuario, cep, estado, cidade, bairro, logradouro, numero, tipo_endereco, principal) VALUES
+('10000000-0000-0000-0000-000000000001', '66075110', 'PA', 'Belém', 'Guamá', 'Av. Perimetral', '10', 'CASA', TRUE),
+('10000000-0000-0000-0000-000000000004', '66810000', 'PA', 'Belém', 'Icoaraci', 'Rua Oito de Maio', '150', 'APARTAMENTO', TRUE);
+INSERT INTO endereco (id_vendedor, cep, estado, cidade, bairro, logradouro, numero, tipo_endereco, principal) VALUES
+('20000000-0000-0000-0000-000000000001', '66010000', 'PA', 'Belém', 'Campina', 'Rua Santo Antônio', '50', 'TRABALHO', TRUE),
+('20000000-0000-0000-0000-000000000002', '66040170', 'PA', 'Belém', 'Nazaré', 'Av. Nazaré', '100', 'TRABALHO', TRUE);
+
+-- 5. Inserindo Produtos (Alguns ativos, outros esgotados)
+INSERT INTO produto (id_produto, id_vendedor, id_categoria, nome, descricao, preco, estoque, peso, status_produto, eh_indicado) VALUES
+('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 1, 'Estojo Aquarela Profissional 48 Cores', 'Tinta super pigmentada para quadros', 120.00, 15, 0.5, 'ATIVO', TRUE),
+('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 2, 'Moletom Love Yourself Tour', 'Casaco oficial da tour', 150.00, 30, 0.8, 'ATIVO', TRUE),
+('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002', 3, 'Pôster Curtindo a Vida Adoidado', 'Moldura retrô anos 80', 45.00, 5, 0.2, 'ATIVO', FALSE),
+('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', 4, 'Kit Espátulas para Bolo de Casamento', 'Aço inox profissional', 85.00, 0, 0.4, 'ESGOTADO', FALSE),
+('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001', 5, 'Curso Lógica de Programação C++', 'Mídia física', 60.00, 100, 0.1, 'ATIVO', FALSE);
+
+-- 6. Inserindo Variações (Apenas para o Moletom K-pop)
+INSERT INTO variacao_produto (id_variacao, id_produto, nome_variacao, estoque, preco_variacao) VALUES
+('40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002', 'Tamanho M - Preto', 15, 150.00),
+('40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', 'Tamanho G - Branco', 15, 150.00);
+
+-- 7. Inserindo Cupons de Desconto
+INSERT INTO cupom (id_cupom, codigo, tipo_cupom, valor, valor_minimo, data_inicio, data_fim, limite_usos, usos_atuais) VALUES
+('50000000-0000-0000-0000-000000000001', 'GIRLSEMPODERADAS20', 'DESCONTO_PERCENTUAL', 20.00, 100.00, '2026-07-01 00:00:00', '2026-12-31 23:59:59', 500, 1),
+('50000000-0000-0000-0000-000000000002', 'BOASVINDAS', 'FRETE_GRATIS', 15.00, 50.00, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1000, 0);
+
+-- 8. Inserindo Pedidos (1 Entregue, 1 Pendente, 1 Cancelado)
+-- Pedido 1 (Marcos compra Aquarela e Pôster. 120 + 45 = 165 Prod. Frete 15. Usa Cupom de 20% (33). Total: 147.00)
+INSERT INTO pedido (id_pedido, id_usuario, id_cupom, id_endereco_entrega, valor_produtos, valor_frete, valor_cupom, valor_total, metodo_pagamento, status_pedido, status_pagamento) VALUES
+('60000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 1, 165.00, 15.00, 33.00, 147.00, 'CARTAO_CREDITO', 'ENTREGUE', 'APROVADO');
+
+-- Pedido 2 (Camila compra Moletom G. 150 Prod. Frete 20. Sem cupom. Total: 170.00)
+INSERT INTO pedido (id_pedido, id_usuario, id_endereco_entrega, valor_produtos, valor_frete, valor_cupom, valor_total, metodo_pagamento, status_pedido, status_pagamento) VALUES
+('60000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000004', 2, 150.00, 20.00, 0.00, 170.00, 'BOLETO', 'PENDENTE', 'PENDENTE');
+
+-- Pedido 3 (Marcos tentou comprar curso C++, mas cancelou. 60 Prod. Frete 10. Total 70.00)
+INSERT INTO pedido (id_pedido, id_usuario, id_endereco_entrega, valor_produtos, valor_frete, valor_cupom, valor_total, metodo_pagamento, status_pedido, status_pagamento) VALUES
+('60000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 1, 60.00, 10.00, 0.00, 70.00, 'PIX', 'CANCELADO', 'NEGADO');
+
+-- 9. Itens dos Pedidos
+-- Itens do Pedido 1
+INSERT INTO item_pedido (id_pedido, id_produto, id_vendedor, quantidade, preco_unitario, subtotal, status_item, preco_original_historico) VALUES
+('60000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 1, 120.00, 120.00, 'ENTREGUE', 130.00),
+('60000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002', 1, 45.00, 45.00, 'ENTREGUE', 45.00);
+-- Item do Pedido 2 (Com variação)
+INSERT INTO item_pedido (id_pedido, id_produto, id_vendedor, id_variacao, quantidade, preco_unitario, subtotal, status_item, preco_original_historico) VALUES
+('60000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', 1, 150.00, 150.00, 'EM_PROCESSAMENTO', 150.00);
+-- Item do Pedido 3
+INSERT INTO item_pedido (id_pedido, id_produto, id_vendedor, quantidade, preco_unitario, subtotal, status_item, preco_original_historico) VALUES
+('60000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001', 1, 60.00, 60.00, 'CANCELADO', 60.00);
+
+-- 10. Pagamentos e Rastreamento (Para o pedido entregue)
+INSERT INTO pagamento (id_pedido, metodo_pagamento, status_pagamento, valor, codigo_transacao) VALUES
+('60000000-0000-0000-0000-000000000001', 'CARTAO_CREDITO', 'APROVADO', 147.00, 'TXN-99887766');
+
+INSERT INTO rastreamento (id_rastreamento, id_pedido, codigo_rastreio, transportadora) VALUES
+('70000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'BR123456789XP', 'Correios');
+
+INSERT INTO historico_rastreamento (id_rastreamento, status_envio, localizacao_atual, detalhes) VALUES
+('70000000-0000-0000-0000-000000000001', 'ENTREGUE', 'Belém, PA', 'Objeto entregue ao destinatário');
+
+-- 11. Avaliações
+INSERT INTO avaliacao (id_usuario, id_produto, nota, comentario) VALUES
+('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 5, 'Aquarela incrível! As cores são muito vivas, chegou rápido no Guamá.'),
+('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', 4, 'O pôster é legal, mas amassa um pouco nos cantos.');
+
+-- 12. Carrinhos Abandonados (Para consultas de remarketing)
+INSERT INTO carrinho (id_carrinho, id_usuario) VALUES
+('80000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004');
+INSERT INTO item_carrinho (id_carrinho, id_produto, quantidade) VALUES
+('80000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 2);
+SELECT 
+    v.nome_loja AS "Loja",
+    prod.eh_indicado AS "Selo Indicado",
+    prod.nome AS "Produto",
+    vp.nome_variacao AS "Variação",
+    ip.preco_original_historico AS "Preço Antigo (Riscado)",
+    ip.preco_unitario AS "Preço Pago",
+    ip.quantidade AS "Qtd",
+    ped.valor_total AS "Total Pago"
+FROM pedido ped
+JOIN item_pedido ip ON ped.id_pedido = ip.id_pedido
+JOIN produto prod ON ip.id_produto = prod.id_produto
+JOIN vendedor v ON prod.id_vendedor = v.id_vendedor
+LEFT JOIN variacao_produto vp ON ip.id_variacao = vp.id_variacao
+WHERE ped.status_pedido = 'ENTREGUE'; --filtra apenas os finalizados 
+
+
+SELECT 
+    v.nome_loja AS "Nome da Loja",
+    COUNT(ip.id_item_pedido) AS "Total de Itens Vendidos",
+    SUM(ip.subtotal) AS "Faturamento Bruto (R$)"
+FROM vendedor v
+JOIN item_pedido ip ON v.id_vendedor = ip.id_vendedor
+JOIN pedido ped ON ip.id_pedido = ped.id_pedido
+WHERE ped.status_pagamento = 'APROVADO'
+GROUP BY v.nome_loja
+ORDER BY "Faturamento Bruto (R$)" DESC;
